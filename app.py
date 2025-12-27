@@ -9,9 +9,7 @@ import altair as alt
 # PAGE CONFIG
 # --------------------------------------------------
 st.set_page_config(
-    page_title="Kidney Disease Risk Prediction",
-    page_icon="🩺",
-    layout="centered"
+    page_title="Kidney Disease Risk Prediction", page_icon="🩺", layout="centered"
 )
 
 # --------------------------------------------------
@@ -41,13 +39,14 @@ st.markdown(
     .risk-low { color: #047857; }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # --------------------------------------------------
 # LOAD MODEL ARTIFACTS
 # --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
+
 
 @st.cache_resource
 def load_artifacts():
@@ -57,16 +56,32 @@ def load_artifacts():
     feature_columns = joblib.load(BASE_DIR / "feature_columns.pkl")
     return model, encoder, scaler, feature_columns
 
+
 model, target_encoder, scaler, feature_columns = load_artifacts()
+
 
 # --------------------------------------------------
 # ENCODING FUNCTIONS
 # --------------------------------------------------
-def yes_no(val): return 1 if val == "Yes" else 0
-def good_poor(val): return 1 if val == "Poor" else 0
-def encode_smoking(val): return {"Never": 0, "Former": 1, "Current": 2}[val]
-def encode_activity(val): return {"Low": 0, "Moderate": 1, "High": 2}[val]
-def encode_sediment(val): return {"Normal": 0, "Abnormal": 1}[val]
+def yes_no(val):
+    return 1 if val == "Yes" else 0
+
+
+def good_poor(val):
+    return 1 if val == "Poor" else 0
+
+
+def encode_smoking(val):
+    return {"Never": 0, "Former": 1, "Current": 2}[val]
+
+
+def encode_activity(val):
+    return {"Low": 0, "Moderate": 1, "High": 2}[val]
+
+
+def encode_sediment(val):
+    return {"Normal": 0, "Abnormal": 1}[val]
+
 
 # --------------------------------------------------
 # APP HEADER
@@ -90,7 +105,9 @@ with st.form("patient_form"):
         input_data["Specific gravity of urine"] = st.number_input("Specific Gravity")
         input_data["Albumin in urine"] = st.number_input("Albumin in Urine")
         input_data["Sugar in urine"] = st.number_input("Sugar in Urine")
-        input_data["Random blood glucose level (mg/dl)"] = st.number_input("Random Blood Glucose")
+        input_data["Random blood glucose level (mg/dl)"] = st.number_input(
+            "Random Blood Glucose"
+        )
         input_data["Blood urea (mg/dl)"] = st.number_input("Blood Urea")
         input_data["Serum creatinine (mg/dl)"] = st.number_input("Serum Creatinine")
         input_data["Sodium level (mEq/L)"] = st.number_input("Sodium Level")
@@ -100,9 +117,15 @@ with st.form("patient_form"):
 
     with c2:
         input_data["White blood cell count (cells/cumm)"] = st.number_input("WBC Count")
-        input_data["Red blood cell count (millions/cumm)"] = st.number_input("RBC Count")
-        input_data["Estimated Glomerular Filtration Rate (eGFR)"] = st.number_input("eGFR")
-        input_data["Urine protein-to-creatinine ratio"] = st.number_input("Protein/Creatinine Ratio")
+        input_data["Red blood cell count (millions/cumm)"] = st.number_input(
+            "RBC Count"
+        )
+        input_data["Estimated Glomerular Filtration Rate (eGFR)"] = st.number_input(
+            "eGFR"
+        )
+        input_data["Urine protein-to-creatinine ratio"] = st.number_input(
+            "Protein/Creatinine Ratio"
+        )
         input_data["Urine output (ml/day)"] = st.number_input("Urine Output")
         input_data["Serum albumin level"] = st.number_input("Serum Albumin")
         input_data["Cholesterol level"] = st.number_input("Cholesterol")
@@ -116,10 +139,18 @@ with st.form("patient_form"):
     c3, c4 = st.columns(2)
 
     with c3:
-        input_data["Hypertension (yes/no)"] = yes_no(st.selectbox("Hypertension", ["No", "Yes"]))
-        input_data["Diabetes mellitus (yes/no)"] = yes_no(st.selectbox("Diabetes", ["No", "Yes"]))
-        input_data["Coronary artery disease (yes/no)"] = yes_no(st.selectbox("CAD", ["No", "Yes"]))
-        input_data["Pedal edema (yes/no)"] = yes_no(st.selectbox("Pedal Edema", ["No", "Yes"]))
+        input_data["Hypertension (yes/no)"] = yes_no(
+            st.selectbox("Hypertension", ["No", "Yes"])
+        )
+        input_data["Diabetes mellitus (yes/no)"] = yes_no(
+            st.selectbox("Diabetes", ["No", "Yes"])
+        )
+        input_data["Coronary artery disease (yes/no)"] = yes_no(
+            st.selectbox("CAD", ["No", "Yes"])
+        )
+        input_data["Pedal edema (yes/no)"] = yes_no(
+            st.selectbox("Pedal Edema", ["No", "Yes"])
+        )
         input_data["Anemia (yes/no)"] = yes_no(st.selectbox("Anemia", ["No", "Yes"]))
 
     with c4:
@@ -187,13 +218,13 @@ if submit:
     c1.markdown(
         f"<div class='card'><div class='card-title'>Clinical Assessment</div>"
         f"<div class='card-value {risk_class}'>{top_category}</div></div>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     c2.markdown(
         f"<div class='card'><div class='card-title'>Risk Probability</div>"
         f"<div class='card-value'>{top_prob}%</div></div>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     conf_label = "High" if top_prob >= 80 else "Moderate" if top_prob >= 60 else "Low"
@@ -201,17 +232,19 @@ if submit:
     c3.markdown(
         f"<div class='card'><div class='card-title'>Model Confidence</div>"
         f"<div class='card-value'>{conf_label}</div></div>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     # --------------------------------------------------
     # PREDICTION PROBABILITIES (AFTER DASHBOARD)
     # --------------------------------------------------
     if hasattr(model, "predict_proba"):
-        prob_df = pd.DataFrame({
-            "Risk Category": target_encoder.classes_,
-            "Probability (%)": np.round(probs, 2)
-        }).sort_values("Probability (%)", ascending=False)
+        prob_df = pd.DataFrame(
+            {
+                "Risk Category": target_encoder.classes_,
+                "Probability (%)": np.round(probs, 2),
+            }
+        ).sort_values("Probability (%)", ascending=False)
 
         st.subheader("📊 Prediction Probabilities")
         st.dataframe(prob_df, use_container_width=True)
@@ -230,7 +263,7 @@ if submit:
                 .encode(
                     theta="Probability (%):Q",
                     color="Risk Category:N",
-                    tooltip=["Risk Category", "Probability (%)"]
+                    tooltip=["Risk Category", "Probability (%)"],
                 )
                 .properties(width=300, height=300)
             )
@@ -238,41 +271,36 @@ if submit:
 
         with col_r:
             bar_chart = (
-    alt.Chart(prob_df)
-    .mark_bar()
-    .encode(
-        x=alt.X(
-            "Risk Category:N",
-            title="Risk Category",
-            axis=alt.Axis(
-                domain=True,        # x-axis line ON
-                ticks=True,
-                labelAngle=0
+                alt.Chart(prob_df)
+                .mark_bar()
+                .encode(
+                    x=alt.X(
+                        "Risk Category:N",
+                        title="Risk Category",
+                        sort=None,
+                        axis=alt.Axis(
+                            domain=True,
+                            ticks=True,
+                            labelAngle=-35,  
+                            labelOverlap=False,  
+                            labelLimit=300,  
+                            labelFontSize=12,
+                        ),
+                    ),
+                    y=alt.Y(
+                        "Probability (%):Q",
+                        title="Probability (%)",
+                        scale=alt.Scale(domain=[0, 100]),
+                        axis=alt.Axis(domain=True, ticks=True, grid=True),
+                    ),
+                    color=alt.Color("Risk Category:N", legend=None),
+                    tooltip=["Risk Category", "Probability (%)"],
+                )
+                .properties(
+                    width=680,  
+                    height=350,
+                )
+                .configure_axis(titleFontSize=14, domainWidth=2)
             )
-        ),
-        y=alt.Y(
-            "Probability (%):Q",
-            title="Probability (%)",
-            scale=alt.Scale(domain=[0, 100]),
-            axis=alt.Axis(
-                domain=True,        # y-axis line ON
-                ticks=True,
-                grid=True
-            )
-        ),
-        color=alt.Color("Risk Category:N", legend=None),
-        tooltip=["Risk Category", "Probability (%)"]
-    )
-    .properties(
-        width=420,   # ⬅ increased width
-        height=380   # ⬅ increased height
-    )
-    .configure_axis(
-        labelFontSize=12,
-        titleFontSize=14,
-        domainWidth=2     # ⬅ thicker axis lines
-    )
-)
 
             st.altair_chart(bar_chart, use_container_width=False)
-
