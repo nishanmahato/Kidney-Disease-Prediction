@@ -209,27 +209,49 @@ if submit:
     # --------------------------------------------------
     st.subheader("Risk Probability Distribution")
 
-    col_l, col_r = st.columns(2)
+# Add spacing above
+st.markdown("<br>", unsafe_allow_html=True)
 
-    with col_l:
-        st.altair_chart(
-            alt.Chart(prob_df).mark_arc(innerRadius=50).encode(
-                theta="Probability (%):Q",
-                color="Category:N",
-                tooltip=["Category", "Probability (%)"]
-            ),
-            use_container_width=True
+col_l, spacer, col_r = st.columns([1, 0.15, 1])
+
+# ---------------- PIE CHART ----------------
+with col_l:
+    pie_chart = (
+        alt.Chart(prob_df)
+        .mark_arc(innerRadius=60)
+        .encode(
+            theta=alt.Theta("Probability (%):Q"),
+            color=alt.Color("Category:N", legend=alt.Legend(title="Category")),
+            tooltip=["Category", "Probability (%)"]
         )
-
-    with col_r:
-        st.altair_chart(
-            alt.Chart(prob_df).mark_bar().encode(
-                x=alt.X("Probability (%):Q", scale=alt.Scale(domain=[0, 100])),
-                y=alt.Y("Category:N", sort="-x"),
-                tooltip=["Category", "Probability (%)"]
-            ),
-            use_container_width=True
+        .properties(
+            width=300,
+            height=300
         )
+    )
 
-    st.subheader("Detailed Probability Table")
-    st.dataframe(prob_df, use_container_width=True)
+    st.altair_chart(pie_chart, use_container_width=False)
+
+# ---------------- BAR CHART ----------------
+with col_r:
+    bar_chart = (
+        alt.Chart(prob_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Category:N", title="Category"),
+            y=alt.Y(
+                "Probability (%):Q",
+                title="Probability (%)",
+                scale=alt.Scale(domain=[0, 100])
+            ),
+            color=alt.Color("Category:N", legend=None),
+            tooltip=["Category", "Probability (%)"]
+        )
+        .properties(
+            width=300,
+            height=300
+        )
+    )
+
+    st.altair_chart(bar_chart, use_container_width=False)
+
