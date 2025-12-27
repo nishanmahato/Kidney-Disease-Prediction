@@ -9,19 +9,19 @@ import altair as alt
 # PAGE CONFIG
 # --------------------------------------------------
 st.set_page_config(
-    page_title="Kidney Disease Risk Dashboard",
+    page_title="Kidney Disease Risk Prediction",
     page_icon="🩺",
     layout="centered"
 )
 
 # --------------------------------------------------
-# STYLES (REALISTIC CLINICAL UI)
+# CUSTOM STYLES
 # --------------------------------------------------
 st.markdown(
     """
     <style>
     .card {
-        background-color: #ffffff;
+        background-color: #f8fafc;
         padding: 1rem;
         border-radius: 12px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
@@ -32,7 +32,7 @@ st.markdown(
         color: #6b7280;
     }
     .card-value {
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         font-weight: 600;
         color: #111827;
     }
@@ -44,7 +44,7 @@ st.markdown(
 )
 
 # --------------------------------------------------
-# LOAD ARTIFACTS
+# LOAD MODEL ARTIFACTS
 # --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -59,141 +59,161 @@ def load_artifacts():
 model, target_encoder, scaler, feature_columns = load_artifacts()
 
 # --------------------------------------------------
-# AUTO FEATURE TYPE DETECTION
+# HELPER FUNCTIONS
 # --------------------------------------------------
-YES_NO_KEYWORDS = ["hypertension", "diabetes", "anemia", "edema", "cad"]
-GOOD_POOR_KEYWORDS = ["appetite"]
+def yes_no(val):
+    return 1 if val == "Yes" else 0
 
-def feature_type(col):
-    c = col.lower()
-    if any(k in c for k in GOOD_POOR_KEYWORDS):
-        return "good_poor"
-    if any(k in c for k in YES_NO_KEYWORDS):
-        return "yes_no"
-    return "number"
+def good_poor(val):
+    return 1 if val == "Poor" else 0
 
-def yes_no(v): return 1 if v == "Yes" else 0
-def good_poor(v): return 1 if v == "Poor" else 0
+# --------------------------------------------------
+# TITLE
+# --------------------------------------------------
+st.title("Kidney Disease Risk Prediction")
+st.caption("Machine Learning–Based Clinical Decision Support System")
 
 # --------------------------------------------------
 # INPUT FORM
 # --------------------------------------------------
-st.title("Kidney Disease Risk Prediction")
-st.caption("Clinical decision support system")
-
-st.subheader("Patient Information")
-
 input_data = {}
 
 with st.form("patient_form"):
-    cols = st.columns(2)
+    st.subheader("Patient Clinical Information")
 
-    for i, col in enumerate(feature_columns):
-        label = col.replace("_", " ").title()
-        ftype = feature_type(col)
+    c1, c2 = st.columns(2)
 
-        with cols[i % 2]:
-            if ftype == "yes_no":
-                val = st.selectbox(label, ["No", "Yes"])
-                input_data[col] = yes_no(val)
+    with c1:
+        input_data["Age of the patient"] = st.number_input("Age (years)", 0, 120)
+        input_data["Blood pressure (mm/Hg)"] = st.number_input("Blood Pressure (mm/Hg)")
+        input_data["Specific gravity of urine"] = st.number_input("Specific Gravity of Urine")
+        input_data["Albumin in urine"] = st.number_input("Albumin in Urine")
+        input_data["Sugar in urine"] = st.number_input("Sugar in Urine")
+        input_data["Random blood glucose level (mg/dl)"] = st.number_input("Random Blood Glucose (mg/dl)")
+        input_data["Blood urea (mg/dl)"] = st.number_input("Blood Urea (mg/dl)")
+        input_data["Serum creatinine (mg/dl)"] = st.number_input("Serum Creatinine (mg/dl)")
+        input_data["Sodium level (mEq/L)"] = st.number_input("Sodium Level (mEq/L)")
+        input_data["Potassium level (mEq/L)"] = st.number_input("Potassium Level (mEq/L)")
+        input_data["Hemoglobin level (gms)"] = st.number_input("Hemoglobin (gms)")
+        input_data["Packed cell volume (%)"] = st.number_input("Packed Cell Volume (%)")
 
-            elif ftype == "good_poor":
-                val = st.selectbox(label, ["Good", "Poor"])
-                input_data[col] = good_poor(val)
+    with c2:
+        input_data["White blood cell count (cells/cumm)"] = st.number_input("WBC Count (cells/cumm)")
+        input_data["Red blood cell count (millions/cumm)"] = st.number_input("RBC Count (millions/cumm)")
+        input_data["Estimated Glomerular Filtration Rate (eGFR)"] = st.number_input("eGFR")
+        input_data["Urine protein-to-creatinine ratio"] = st.number_input("Urine Protein / Creatinine Ratio")
+        input_data["Urine output (ml/day)"] = st.number_input("Urine Output (ml/day)")
+        input_data["Serum albumin level"] = st.number_input("Serum Albumin Level")
+        input_data["Cholesterol level"] = st.number_input("Cholesterol Level")
+        input_data["Parathyroid hormone (PTH) level"] = st.number_input("PTH Level")
+        input_data["Serum calcium level"] = st.number_input("Serum Calcium Level")
+        input_data["Serum phosphate level"] = st.number_input("Serum Phosphate Level")
+        input_data["Body Mass Index (BMI)"] = st.number_input("Body Mass Index (BMI)")
 
-            else:
-                input_data[col] = st.number_input(label, value=0.0, format="%.2f")
+    st.subheader("Medical History")
+
+    c3, c4 = st.columns(2)
+
+    with c3:
+        input_data["Hypertension (yes/no)"] = yes_no(st.selectbox("Hypertension", ["No", "Yes"]))
+        input_data["Diabetes mellitus (yes/no)"] = yes_no(st.selectbox("Diabetes Mellitus", ["No", "Yes"]))
+        input_data["Coronary artery disease (yes/no)"] = yes_no(st.selectbox("Coronary Artery Disease", ["No", "Yes"]))
+        input_data["Pedal edema (yes/no)"] = yes_no(st.selectbox("Pedal Edema", ["No", "Yes"]))
+        input_data["Anemia (yes/no)"] = yes_no(st.selectbox("Anemia", ["No", "Yes"]))
+
+    with c4:
+        input_data["Family history of chronic kidney disease"] = yes_no(
+            st.selectbox("Family History of CKD", ["No", "Yes"])
+        )
+        input_data["Appetite (good/poor)"] = good_poor(
+            st.selectbox("Appetite", ["Good", "Poor"])
+        )
+        input_data["Smoking status"] = st.selectbox(
+            "Smoking Status", ["Never", "Former", "Current"]
+        )
+        input_data["Physical activity level"] = st.selectbox(
+            "Physical Activity Level", ["Low", "Moderate", "High"]
+        )
+        input_data["Urinary sediment microscopy results"] = st.selectbox(
+            "Urinary Sediment Result", ["Normal", "Abnormal"]
+        )
+
+    st.subheader("Inflammatory Markers")
+
+    input_data["Cystatin C level"] = st.number_input("Cystatin C Level")
+    input_data["C-reactive protein (CRP) level"] = st.number_input("CRP Level")
+    input_data["Interleukin-6 (IL-6) level"] = st.number_input("IL-6 Level")
 
     submit = st.form_submit_button("Predict Risk")
 
 # --------------------------------------------------
-# PREDICTION & DASHBOARD
+# PREDICTION
 # --------------------------------------------------
 if submit:
     df = pd.DataFrame([input_data])
 
+    # Scale numeric features
     df[scaler.feature_names_in_] = scaler.transform(
         df[scaler.feature_names_in_]
     )
+
     df = df[feature_columns]
 
     with st.spinner("Analyzing patient data..."):
-        pred = model.predict(df)[0]
-        label = target_encoder.inverse_transform([pred])[0]
-        probs = model.predict_proba(df)[0] * 100
+        prediction = model.predict(df)[0]
+        probabilities = model.predict_proba(df)[0] * 100
+        label = target_encoder.inverse_transform([prediction])[0]
 
     prob_df = pd.DataFrame({
         "Category": target_encoder.classes_,
-        "Probability": np.round(probs, 2)
-    }).sort_values("Probability", ascending=False)
+        "Probability (%)": np.round(probabilities, 2)
+    }).sort_values("Probability (%)", ascending=False)
 
     top = prob_df.iloc[0]
 
     # --------------------------------------------------
-    # REVIEW YOUR PREDICTION OUTCOME
+    # RESULT DASHBOARD
     # --------------------------------------------------
-    st.subheader("Review Your Prediction Outcome")
+    st.subheader("Prediction Outcome")
 
-    risk_class = "risk-high" if top["Category"].lower() in ["ckd", "yes", "high"] else "risk-low"
+    risk_class = "risk-high" if top["Category"].lower() in ["ckd", "yes", "positive"] else "risk-low"
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
 
     c1.markdown(
-        f"<div class='card'><div class='card-title'>Clinical Risk Assessment</div>"
+        f"<div class='card'><div class='card-title'>Clinical Assessment</div>"
         f"<div class='card-value {risk_class}'>{top['Category']}</div></div>",
         unsafe_allow_html=True
     )
 
     c2.markdown(
-        f"<div class='card'><div class='card-title'>Estimated Risk Probability</div>"
-        f"<div class='card-value'>{top['Probability']}%</div></div>",
-        unsafe_allow_html=True
-    )
-
-    c3.markdown(
-        f"<div class='card'><div class='card-title'>Model Confidence</div>"
-        f"<div class='card-value'>High</div></div>",
+        f"<div class='card'><div class='card-title'>Risk Probability</div>"
+        f"<div class='card-value'>{top['Probability (%)']}%</div></div>",
         unsafe_allow_html=True
     )
 
     # --------------------------------------------------
-    # PIE + BAR CHART (SINGLE ROW)
+    # VISUALIZATION
     # --------------------------------------------------
-    st.subheader("Risk Probability Visualization")
+    st.subheader("Risk Probability Distribution")
 
-    col_left, col_right = st.columns(2)
+    col_l, col_r = st.columns(2)
 
-    with col_left:
-        pie = (
-            alt.Chart(prob_df)
-            .mark_arc(innerRadius=50)
-            .encode(
-                theta="Probability:Q",
-                color="Category:N",
-                tooltip=["Category", "Probability"]
-            )
+    with col_l:
+        pie = alt.Chart(prob_df).mark_arc(innerRadius=50).encode(
+            theta="Probability (%):Q",
+            color="Category:N",
+            tooltip=["Category", "Probability (%)"]
         )
         st.altair_chart(pie, use_container_width=True)
 
-    with col_right:
-        bar = (
-            alt.Chart(prob_df)
-            .mark_bar()
-            .encode(
-                x=alt.X("Probability:Q", scale=alt.Scale(domain=[0, 100])),
-                y=alt.Y("Category:N", sort="-x"),
-                tooltip=["Category", "Probability"]
-            )
+    with col_r:
+        bar = alt.Chart(prob_df).mark_bar().encode(
+            x=alt.X("Probability (%):Q", scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y("Category:N", sort="-x"),
+            tooltip=["Category", "Probability (%)"]
         )
         st.altair_chart(bar, use_container_width=True)
 
-    # --------------------------------------------------
-    # CONFIDENCE BAR
-    # --------------------------------------------------
-    st.subheader("Prediction Confidence")
-
-    conf1, conf2 = st.columns([1, 4])
-    conf1.markdown("**Confidence Score**")
-    conf2.progress(int(top["Probability"]))
-
+    st.subheader("Detailed Probability Table")
     st.dataframe(prob_df, use_container_width=True)
