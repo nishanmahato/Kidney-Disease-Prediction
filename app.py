@@ -162,21 +162,6 @@ if submit:
         pred = model.predict(df)[0]
         label = target_encoder.inverse_transform([pred])[0]
 
-    # --------------------------------------------------
-    # PREDICTION PROBABILITIES (TABLE)
-    # --------------------------------------------------
-    if hasattr(model, "predict_proba"):
-        probs = model.predict_proba(df)[0]
-
-        prob_df = pd.DataFrame({
-            "Risk Category": target_encoder.classes_,
-            "Probability (%)": np.round(probs * 100, 2)
-        }).sort_values("Probability (%)", ascending=False)
-
-        st.subheader("📊 Prediction Probabilities")
-        st.dataframe(prob_df, use_container_width=True)
-
-        top = prob_df.iloc[0]
 
         # --------------------------------------------------
         # RESULT DASHBOARD
@@ -212,6 +197,25 @@ if submit:
             unsafe_allow_html=True
         )
 
+
+
+        # --------------------------------------------------
+    # PREDICTION PROBABILITIES (TABLE)
+    # --------------------------------------------------
+    if hasattr(model, "predict_proba"):
+        probs = model.predict_proba(df)[0]
+
+        prob_df = pd.DataFrame({
+            "Risk Category": target_encoder.classes_,
+            "Probability (%)": np.round(probs * 100, 2)
+        }).sort_values("Probability (%)", ascending=False)
+
+        st.subheader("Prediction Probabilities")
+        st.dataframe(prob_df, use_container_width=True)
+
+        top = prob_df.iloc[0]
+
+        
         # --------------------------------------------------
         # VISUALIZATION
         # --------------------------------------------------
@@ -245,4 +249,5 @@ if submit:
                 .properties(width=300, height=300)
             )
             st.altair_chart(bar_chart, use_container_width=False)
+
 
