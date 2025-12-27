@@ -20,9 +20,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    body {
-        background-color: #f8fafc;
-    }
+    body { background-color: #f8fafc; }
     .card {
         background-color: #ffffff;
         padding: 1rem;
@@ -47,7 +45,7 @@ st.markdown(
 )
 
 # --------------------------------------------------
-# LOAD ARTIFACTS
+# LOAD MODEL ARTIFACTS
 # --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -62,13 +60,13 @@ def load_artifacts():
 model, target_encoder, scaler, feature_columns = load_artifacts()
 
 # --------------------------------------------------
-# HELPER FUNCTIONS
+# ENCODING FUNCTIONS (CRITICAL FIX)
 # --------------------------------------------------
-def yes_no(val):
-    return 1 if val == "Yes" else 0
-
-def good_poor(val):
-    return 1 if val == "Poor" else 0
+def yes_no(val): return 1 if val == "Yes" else 0
+def good_poor(val): return 1 if val == "Poor" else 0
+def encode_smoking(val): return {"Never": 0, "Former": 1, "Current": 2}[val]
+def encode_activity(val): return {"Low": 0, "Moderate": 1, "High": 2}[val]
+def encode_sediment(val): return {"Normal": 0, "Abnormal": 1}[val]
 
 # --------------------------------------------------
 # APP HEADER
@@ -111,7 +109,7 @@ with st.form("patient_form"):
         input_data["Parathyroid hormone (PTH) level"] = st.number_input("PTH Level")
         input_data["Serum calcium level"] = st.number_input("Serum Calcium Level")
         input_data["Serum phosphate level"] = st.number_input("Serum Phosphate Level")
-        input_data["Body Mass Index (BMI)"] = st.number_input("Body Mass Index (BMI)")
+        input_data["Body Mass Index (BMI)"] = st.number_input("BMI")
 
     st.subheader("Medical History")
 
@@ -131,14 +129,14 @@ with st.form("patient_form"):
         input_data["Appetite (good/poor)"] = good_poor(
             st.selectbox("Appetite", ["Good", "Poor"])
         )
-        input_data["Smoking status"] = st.selectbox(
-            "Smoking Status", ["Never", "Former", "Current"]
+        input_data["Smoking status"] = encode_smoking(
+            st.selectbox("Smoking Status", ["Never", "Former", "Current"])
         )
-        input_data["Physical activity level"] = st.selectbox(
-            "Physical Activity Level", ["Low", "Moderate", "High"]
+        input_data["Physical activity level"] = encode_activity(
+            st.selectbox("Physical Activity Level", ["Low", "Moderate", "High"])
         )
-        input_data["Urinary sediment microscopy results"] = st.selectbox(
-            "Urinary Sediment Result", ["Normal", "Abnormal"]
+        input_data["Urinary sediment microscopy results"] = encode_sediment(
+            st.selectbox("Urinary Sediment Result", ["Normal", "Abnormal"])
         )
 
     st.subheader("Inflammatory Markers")
@@ -150,29 +148,28 @@ with st.form("patient_form"):
     submit = st.form_submit_button("Predict Risk")
 
 # --------------------------------------------------
-# PREDICTION (FIXED)
+# PREDICTION (FULLY SAFE)
 # --------------------------------------------------
 if submit:
     df = pd.DataFrame([input_data])
 
-    # Align input schema with training schema
+    # Align schema exactly with training
     df = df.reindex(columns=feature_columns, fill_value=0)
 
-    # Apply scaling safely
+    # Apply scaler safely
     try:
-        df_scaled = scaler.transform(df)
-        df = pd.DataFrame(df_scaled, columns=feature_columns)
+        df = pd.DataFrame(scaler.transform(df), columns=feature_columns)
     except Exception:
         pass
 
     with st.spinner("Analyzing patient data..."):
-        prediction = model.predict(df)[0]
-        probabilities = model.predict_proba(df)[0] * 100
-        label = target_encoder.inverse_transform([prediction])[0]
+        pred = model.predict(df)[0]
+        probs = model.predict_proba(df)[0] * 100
+        label = target_encoder.inverse_transform([pred])[0]
 
     prob_df = pd.DataFrame({
         "Category": target_encoder.classes_,
-        "Probability (%)": np.round(probabilities, 2)
+        "Probability (%)": np.round(probs, 2)
     }).sort_values("Probability (%)", ascending=False)
 
     top = prob_df.iloc[0]
@@ -198,14 +195,8 @@ if submit:
         unsafe_allow_html=True
     )
 
-    # Probability-based confidence (correct)
     confidence = top["Probability (%)"]
-    if confidence >= 80:
-        conf_label = "High"
-    elif confidence >= 60:
-        conf_label = "Moderate"
-    else:
-        conf_label = "Low"
+    conf_label = "High" if confidence >= 80 else "Moderate" if confidence >= 60 else "Low"
 
     c3.markdown(
         f"<div class='card'><div class='card-title'>Model Confidence</div>"
@@ -221,20 +212,24 @@ if submit:
     col_l, col_r = st.columns(2)
 
     with col_l:
-        pie = alt.Chart(prob_df).mark_arc(innerRadius=50).encode(
-            theta="Probability (%):Q",
-            color="Category:N",
-            tooltip=["Category", "Probability (%)"]
+        st.altair_chart(
+            alt.Chart(prob_df).mark_arc(innerRadius=50).encode(
+                theta="Probability (%):Q",
+                color="Category:N",
+                tooltip=["Category", "Probability (%)"]
+            ),
+            use_container_width=True
         )
-        st.altair_chart(pie, use_container_width=True)
 
     with col_r:
-        bar = alt.Chart(prob_df).mark_bar().encode(
-            x=alt.X("Probability (%):Q", scale=alt.Scale(domain=[0, 100])),
-            y=alt.Y("Category:N", sort="-x"),
-            tooltip=["Category", "Probability (%)"]
+        st.altair_chart(
+            alt.Chart(prob_df).mark_bar().encode(
+                x=alt.X("Probability (%):Q", scale=alt.Scale(domain=[0, 100])),
+                y=alt.Y("Category:N", sort="-x"),
+                tooltip=["Category", "Probability (%)"]
+            ),
+            use_container_width=True
         )
-        st.altair_chart(bar, use_container_width=True)
 
     st.subheader("Detailed Probability Table")
     st.dataframe(prob_df, use_container_width=True)
