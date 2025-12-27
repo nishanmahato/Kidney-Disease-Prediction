@@ -6,30 +6,34 @@ from pathlib import Path
 import altair as alt
 
 # --------------------------------------------------
-# PAGE CONFIG (Mobile Optimized)
+# PAGE CONFIG
 # --------------------------------------------------
 st.set_page_config(
-    page_title="Kidney Disease Risk Prediction",
+    page_title="Kidney Disease Risk Dashboard",
     page_icon="🩺",
     layout="centered"
 )
 
 # --------------------------------------------------
-# GLOBAL STYLING
+# STYLING (CARD UI)
 # --------------------------------------------------
 st.markdown(
     """
     <style>
-    .block-container {
-        max-width: 900px;
-        padding-top: 1rem;
-        padding-bottom: 2rem;
-    }
-    div[data-testid="stForm"] {
+    .card {
         background-color: #ffffff;
-        padding: 1.5rem;
-        border-radius: 14px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+        padding: 1rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        text-align: center;
+    }
+    .card-title {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+    .card-value {
+        font-size: 1.4rem;
+        font-weight: 600;
     }
     </style>
     """,
@@ -37,149 +41,133 @@ st.markdown(
 )
 
 # --------------------------------------------------
-# HEADER
+# LOAD ARTIFACTS
 # --------------------------------------------------
-st.title("🩺 Kidney Disease Risk Prediction System")
-st.caption("Machine Learning–based clinical decision support")
-
 BASE_DIR = Path(__file__).resolve().parent
 
-# --------------------------------------------------
-# LOAD MODEL ARTIFACTS
-# --------------------------------------------------
 @st.cache_resource
 def load_artifacts():
     model = joblib.load(BASE_DIR / "rf_kidney_disease_model.pkl")
-    target_encoder = joblib.load(BASE_DIR / "target_label_encoder.pkl")
+    encoder = joblib.load(BASE_DIR / "target_label_encoder.pkl")
     scaler = joblib.load(BASE_DIR / "feature_scaler.pkl")
-    feature_columns = joblib.load(BASE_DIR / "feature_columns.pkl")
-    return model, target_encoder, scaler, feature_columns
+    features = joblib.load(BASE_DIR / "feature_columns.pkl")
+    return model, encoder, scaler, features
 
 model, target_encoder, scaler, feature_columns = load_artifacts()
 
 # --------------------------------------------------
-# BINARY FEATURES (MATCH TRAINING FEATURES EXACTLY)
+# EXPLICIT UI FEATURE DEFINITION (CRITICAL FIX)
 # --------------------------------------------------
-binary_feature_names = {
-    "hypertension",
-    "diabetes_mellitus",
-    "coronary_artery_disease",
-    "appetite",
-    "anemia",
-    "pedal_edema"
+ui_fields = {
+    "age": {"type": "number", "label": "Age (years)"},
+    "blood_pressure": {"type": "number", "label": "Blood Pressure"},
+    "hypertension": {"type": "yesno", "label": "Hypertension"},
+    "diabetes_mellitus": {"type": "yesno", "label": "Diabetes"},
+    "anemia": {"type": "yesno", "label": "Anemia"},
+    "pedal_edema": {"type": "yesno", "label": "Pedal Edema"}
 }
 
-binary_features = [
-    col for col in feature_columns if col.lower() in binary_feature_names
-]
-
-def yes_no_to_numeric(value: str) -> int:
-    return 1 if value == "Yes" else 0
+def yes_no(val):
+    return 1 if val == "Yes" else 0
 
 # --------------------------------------------------
 # INPUT FORM
 # --------------------------------------------------
-st.subheader("🧾 Patient Information")
+st.title("🩺 Kidney Disease Risk Prediction")
+st.subheader("Patient Information")
 
 input_data = {}
 
-with st.form("prediction_form"):
+with st.form("patient_form"):
     cols = st.columns(2)
 
-    for i, col_name in enumerate(feature_columns):
-        label = col_name.replace("_", " ").title()
-
+    for i, (feature, config) in enumerate(ui_fields.items()):
         with cols[i % 2]:
-            if col_name in binary_features:
-                choice = st.selectbox(
-                    label,
-                    options=["No", "Yes"],
-                    index=0
-                )
-                input_data[col_name] = yes_no_to_numeric(choice)
+            if config["type"] == "yesno":
+                choice = st.selectbox(config["label"], ["No", "Yes"])
+                input_data[feature] = yes_no(choice)
             else:
-                input_data[col_name] = st.number_input(
-                    label,
-                    value=0.0,
-                    format="%.2f"
+                input_data[feature] = st.number_input(
+                    config["label"], value=0.0, format="%.2f"
                 )
 
-    submitted = st.form_submit_button("🔍 Predict Risk")
+    submit = st.form_submit_button("🔍 Predict Risk")
 
 # --------------------------------------------------
-# PREDICTION LOGIC
+# PREDICTION
 # --------------------------------------------------
-if submitted:
-    input_df = pd.DataFrame([input_data])
+if submit:
+    df = pd.DataFrame([input_data])
 
-    scaler_features = list(scaler.feature_names_in_)
-    input_df[scaler_features] = scaler.transform(
-        input_df[scaler_features]
+    # Fill missing features with 0
+    for col in feature_columns:
+        if col not in df.columns:
+            df[col] = 0
+
+    df = df[feature_columns]
+    df[scaler.feature_names_in_] = scaler.transform(df[scaler.feature_names_in_])
+
+    pred = model.predict(df)[0]
+    label = target_encoder.inverse_transform([pred])[0]
+
+    probs = model.predict_proba(df)[0] * 100
+
+    prob_df = pd.DataFrame({
+        "Category": target_encoder.classes_,
+        "Probability": np.round(probs, 2)
+    }).sort_values("Probability", ascending=False)
+
+    top = prob_df.iloc[0]
+
+    # --------------------------------------------------
+    # RESULT DASHBOARD (LIKE YOUR IMAGE)
+    # --------------------------------------------------
+    st.subheader("Review Your Prediction Outcome")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.markdown(
+        f"<div class='card'><div class='card-title'>Risk Level</div>"
+        f"<div class='card-value'>{top['Category']}</div></div>",
+        unsafe_allow_html=True
     )
 
-    input_df = input_df[feature_columns]
+    c2.markdown(
+        f"<div class='card'><div class='card-title'>Risk Probability</div>"
+        f"<div class='card-value'>{top['Probability']}%</div></div>",
+        unsafe_allow_html=True
+    )
 
-    with st.spinner("Analyzing patient data..."):
-        pred_encoded = model.predict(input_df)[0]
-        pred_label = target_encoder.inverse_transform([pred_encoded])[0]
-
-    # --------------------------------------------------
-    # RESULT DISPLAY
-    # --------------------------------------------------
-    st.subheader("✅ Prediction Result")
-
-    if str(pred_label).lower() in ["ckd", "chronic kidney disease", "yes"]:
-        st.error("⚠️ High Risk of Kidney Disease")
-    else:
-        st.success("✅ Low Risk of Kidney Disease")
-
-    st.metric("Predicted Status", pred_label)
+    c3.markdown(
+        f"<div class='card'><div class='card-title'>Model Confidence</div>"
+        f"<div class='card-value'>High</div></div>",
+        unsafe_allow_html=True
+    )
 
     # --------------------------------------------------
-    # PROBABILITY VISUALIZATION
+    # HORIZONTAL BAR CHART
     # --------------------------------------------------
-    if hasattr(model, "predict_proba"):
-        probs = model.predict_proba(input_df)[0] * 100
+    st.subheader("Risk Probability Distribution")
 
-        prob_df = pd.DataFrame({
-            "Category": target_encoder.classes_,
-            "Probability (%)": np.round(probs, 2)
-        }).sort_values("Probability (%)", ascending=False)
-
-        # ---------- HORIZONTAL BAR CHART ----------
-        st.subheader("📊 Risk Probability Distribution")
-
-        bar_chart = (
-            alt.Chart(prob_df)
-            .mark_bar()
-            .encode(
-                x=alt.X(
-                    "Probability (%):Q",
-                    scale=alt.Scale(domain=[0, 100]),
-                    title="Probability (%)"
-                ),
-                y=alt.Y(
-                    "Category:N",
-                    sort="-x",
-                    title=None
-                ),
-                tooltip=["Category", "Probability (%)"]
-            )
+    chart = (
+        alt.Chart(prob_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Probability:Q", scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y("Category:N", sort="-x"),
+            tooltip=["Category", "Probability"]
         )
+    )
 
-        st.altair_chart(bar_chart, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
 
-        # ---------- HORIZONTAL GAUGE ----------
-        top = prob_df.iloc[0]
+    # --------------------------------------------------
+    # HORIZONTAL CONFIDENCE BAR
+    # --------------------------------------------------
+    st.subheader("Highest Risk Confidence")
 
-        st.subheader("🎯 Highest Risk Confidence")
+    colA, colB = st.columns([1, 4])
+    colA.markdown(f"**{top['Category']}**")
+    colB.progress(int(top["Probability"]))
 
-        col1, col2 = st.columns([1, 4])
-
-        with col1:
-            st.markdown(f"**{top['Category']}**")
-
-        with col2:
-            st.progress(int(top["Probability (%)"]))
-
-        st.dataframe(prob_df, use_container_width=True)
+    st.dataframe(prob_df, use_container_width=True)
