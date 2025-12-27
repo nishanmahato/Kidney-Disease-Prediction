@@ -215,7 +215,7 @@ if submit:
         # --------------------------------------------------
         # VISUALIZATION
         # --------------------------------------------------
-        st.subheader("📈 Risk Probability Distribution")
+        st.subheader("Risk Probability Distribution")
 
         col_l, spacer, col_r = st.columns([1, 0.15, 1])
 
@@ -245,3 +245,4 @@ if submit:
                 .properties(width=300, height=300)
             )
             st.altair_chart(bar_chart, use_container_width=False)
+
