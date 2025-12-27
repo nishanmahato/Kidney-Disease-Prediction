@@ -153,10 +153,8 @@ with st.form("patient_form"):
 if submit:
     df = pd.DataFrame([input_data])
 
-    # Align schema exactly with training
     df = df.reindex(columns=feature_columns, fill_value=0)
 
-    # Apply scaler safely
     try:
         df = pd.DataFrame(scaler.transform(df), columns=feature_columns)
     except Exception:
@@ -174,12 +172,14 @@ if submit:
 
     top = prob_df.iloc[0]
 
-    # --------------------------------------------------
-    # RESULT DASHBOARD
-    # --------------------------------------------------
+    # ---------------- RESULT DASHBOARD ----------------
     st.subheader("Prediction Outcome")
 
-    risk_class = "risk-high" if top["Category"].lower() in ["ckd", "yes", "positive"] else "risk-low"
+    risk_class = (
+        "risk-high"
+        if top["Category"].lower() in ["ckd", "yes", "positive"]
+        else "risk-low"
+    )
 
     c1, c2, c3 = st.columns(3)
 
@@ -204,54 +204,39 @@ if submit:
         unsafe_allow_html=True
     )
 
-    # --------------------------------------------------
-    # VISUALIZATION
-    # --------------------------------------------------
+    # ---------------- VISUALIZATION ----------------
     st.subheader("Risk Probability Distribution")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-# Add spacing above
-st.markdown("<br>", unsafe_allow_html=True)
+    col_l, spacer, col_r = st.columns([1, 0.15, 1])
 
-col_l, spacer, col_r = st.columns([1, 0.15, 1])
-
-# ---------------- PIE CHART ----------------
-with col_l:
-    pie_chart = (
-        alt.Chart(prob_df)
-        .mark_arc(innerRadius=60)
-        .encode(
-            theta=alt.Theta("Probability (%):Q"),
-            color=alt.Color("Category:N", legend=alt.Legend(title="Category")),
-            tooltip=["Category", "Probability (%)"]
+    with col_l:
+        pie_chart = (
+            alt.Chart(prob_df)
+            .mark_arc(innerRadius=60)
+            .encode(
+                theta=alt.Theta("Probability (%):Q"),
+                color=alt.Color("Category:N", legend=alt.Legend(title="Category")),
+                tooltip=["Category", "Probability (%)"]
+            )
+            .properties(width=300, height=300)
         )
-        .properties(
-            width=300,
-            height=300
+        st.altair_chart(pie_chart, use_container_width=False)
+
+    with col_r:
+        bar_chart = (
+            alt.Chart(prob_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Category:N", title="Category"),
+                y=alt.Y(
+                    "Probability (%):Q",
+                    title="Probability (%)",
+                    scale=alt.Scale(domain=[0, 100])
+                ),
+                color=alt.Color("Category:N", legend=None),
+                tooltip=["Category", "Probability (%)"]
+            )
+            .properties(width=300, height=300)
         )
-    )
-
-    st.altair_chart(pie_chart, use_container_width=False)
-
-# ---------------- BAR CHART ----------------
-with col_r:
-    bar_chart = (
-        alt.Chart(prob_df)
-        .mark_bar()
-        .encode(
-            x=alt.X("Category:N", title="Category"),
-            y=alt.Y(
-                "Probability (%):Q",
-                title="Probability (%)",
-                scale=alt.Scale(domain=[0, 100])
-            ),
-            color=alt.Color("Category:N", legend=None),
-            tooltip=["Category", "Probability (%)"]
-        )
-        .properties(
-            width=300,
-            height=300
-        )
-    )
-
-    st.altair_chart(bar_chart, use_container_width=False)
-
+        st.altair_chart(bar_chart, use_container_width=False)
