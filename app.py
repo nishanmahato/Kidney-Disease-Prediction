@@ -147,7 +147,7 @@ with st.form("patient_form"):
     submit = st.form_submit_button("Predict Risk")
 
 # --------------------------------------------------
-# PREDICTION + PROBABILITIES
+# PREDICTION PIPELINE
 # --------------------------------------------------
 if submit:
     df = pd.DataFrame([input_data])
@@ -162,64 +162,64 @@ if submit:
         pred = model.predict(df)[0]
         label = target_encoder.inverse_transform([pred])[0]
 
+    # --------------------------------------------------
+    # RESULT DASHBOARD
+    # --------------------------------------------------
+    st.subheader("Prediction Outcome")
 
-        # --------------------------------------------------
-        # RESULT DASHBOARD
-        # --------------------------------------------------
-        st.subheader("Prediction Outcome")
+    if hasattr(model, "predict_proba"):
+        probs = model.predict_proba(df)[0] * 100
+        top_idx = np.argmax(probs)
+        top_category = target_encoder.classes_[top_idx]
+        top_prob = round(probs[top_idx], 2)
+    else:
+        top_category = label
+        top_prob = 0
 
-        risk_class = (
-            "risk-high"
-            if top["Risk Category"].lower() in ["ckd", "yes", "positive"]
-            else "risk-low"
-        )
+    risk_class = (
+        "risk-high"
+        if top_category.lower() in ["ckd", "yes", "positive"]
+        else "risk-low"
+    )
 
-        c1, c2, c3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
 
-        c1.markdown(
-            f"<div class='card'><div class='card-title'>Clinical Assessment</div>"
-            f"<div class='card-value {risk_class}'>{top['Risk Category']}</div></div>",
-            unsafe_allow_html=True
-        )
+    c1.markdown(
+        f"<div class='card'><div class='card-title'>Clinical Assessment</div>"
+        f"<div class='card-value {risk_class}'>{top_category}</div></div>",
+        unsafe_allow_html=True
+    )
 
-        c2.markdown(
-            f"<div class='card'><div class='card-title'>Risk Probability</div>"
-            f"<div class='card-value'>{top['Probability (%)']}%</div></div>",
-            unsafe_allow_html=True
-        )
+    c2.markdown(
+        f"<div class='card'><div class='card-title'>Risk Probability</div>"
+        f"<div class='card-value'>{top_prob}%</div></div>",
+        unsafe_allow_html=True
+    )
 
-        confidence = top["Probability (%)"]
-        conf_label = "High" if confidence >= 80 else "Moderate" if confidence >= 60 else "Low"
+    conf_label = "High" if top_prob >= 80 else "Moderate" if top_prob >= 60 else "Low"
 
-        c3.markdown(
-            f"<div class='card'><div class='card-title'>Model Confidence</div>"
-            f"<div class='card-value'>{conf_label}</div></div>",
-            unsafe_allow_html=True
-        )
+    c3.markdown(
+        f"<div class='card'><div class='card-title'>Model Confidence</div>"
+        f"<div class='card-value'>{conf_label}</div></div>",
+        unsafe_allow_html=True
+    )
 
-
-
-        # --------------------------------------------------
-    # PREDICTION PROBABILITIES (TABLE)
+    # --------------------------------------------------
+    # PREDICTION PROBABILITIES (AFTER DASHBOARD)
     # --------------------------------------------------
     if hasattr(model, "predict_proba"):
-        probs = model.predict_proba(df)[0]
-
         prob_df = pd.DataFrame({
             "Risk Category": target_encoder.classes_,
-            "Probability (%)": np.round(probs * 100, 2)
+            "Probability (%)": np.round(probs, 2)
         }).sort_values("Probability (%)", ascending=False)
 
-        st.subheader("Prediction Probabilities")
+        st.subheader("📊 Prediction Probabilities")
         st.dataframe(prob_df, use_container_width=True)
 
-        top = prob_df.iloc[0]
-
-        
         # --------------------------------------------------
         # VISUALIZATION
         # --------------------------------------------------
-        st.subheader("Risk Probability Distribution")
+        st.subheader("📈 Risk Probability Distribution")
 
         col_l, spacer, col_r = st.columns([1, 0.15, 1])
 
@@ -249,5 +249,3 @@ if submit:
                 .properties(width=300, height=300)
             )
             st.altair_chart(bar_chart, use_container_width=False)
-
-
