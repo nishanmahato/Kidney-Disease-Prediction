@@ -162,23 +162,30 @@ if submit:
         pred = model.predict(df)[0]
         label = target_encoder.inverse_transform([pred])[0]
 
-    # ---------------- PROBABILITIES ----------------
+    # --------------------------------------------------
+    # PREDICTION PROBABILITIES (TABLE)
+    # --------------------------------------------------
     if hasattr(model, "predict_proba"):
-        probs = model.predict_proba(df)[0] * 100
+        probs = model.predict_proba(df)[0]
 
         prob_df = pd.DataFrame({
-            "Category": target_encoder.classes_,
-            "Probability (%)": np.round(probs, 2)
+            "Risk Category": target_encoder.classes_,
+            "Probability (%)": np.round(probs * 100, 2)
         }).sort_values("Probability (%)", ascending=False)
+
+        st.subheader("📊 Prediction Probabilities")
+        st.dataframe(prob_df, use_container_width=True)
 
         top = prob_df.iloc[0]
 
-        # ---------------- RESULT DASHBOARD ----------------
+        # --------------------------------------------------
+        # RESULT DASHBOARD
+        # --------------------------------------------------
         st.subheader("Prediction Outcome")
 
         risk_class = (
             "risk-high"
-            if top["Category"].lower() in ["ckd", "yes", "positive"]
+            if top["Risk Category"].lower() in ["ckd", "yes", "positive"]
             else "risk-low"
         )
 
@@ -186,7 +193,7 @@ if submit:
 
         c1.markdown(
             f"<div class='card'><div class='card-title'>Clinical Assessment</div>"
-            f"<div class='card-value {risk_class}'>{top['Category']}</div></div>",
+            f"<div class='card-value {risk_class}'>{top['Risk Category']}</div></div>",
             unsafe_allow_html=True
         )
 
@@ -205,9 +212,10 @@ if submit:
             unsafe_allow_html=True
         )
 
-        # ---------------- VISUALIZATION ----------------
-        st.subheader("Risk Probability Distribution")
-        st.markdown("<br>", unsafe_allow_html=True)
+        # --------------------------------------------------
+        # VISUALIZATION
+        # --------------------------------------------------
+        st.subheader("📈 Risk Probability Distribution")
 
         col_l, spacer, col_r = st.columns([1, 0.15, 1])
 
@@ -217,8 +225,8 @@ if submit:
                 .mark_arc(innerRadius=60)
                 .encode(
                     theta="Probability (%):Q",
-                    color="Category:N",
-                    tooltip=["Category", "Probability (%)"]
+                    color="Risk Category:N",
+                    tooltip=["Risk Category", "Probability (%)"]
                 )
                 .properties(width=300, height=300)
             )
@@ -229,10 +237,10 @@ if submit:
                 alt.Chart(prob_df)
                 .mark_bar()
                 .encode(
-                    x="Category:N",
+                    x="Risk Category:N",
                     y=alt.Y("Probability (%):Q", scale=alt.Scale(domain=[0, 100])),
-                    color="Category:N",
-                    tooltip=["Category", "Probability (%)"]
+                    color="Risk Category:N",
+                    tooltip=["Risk Category", "Probability (%)"]
                 )
                 .properties(width=300, height=300)
             )
