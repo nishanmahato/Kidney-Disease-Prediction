@@ -238,14 +238,41 @@ if submit:
 
         with col_r:
             bar_chart = (
-                alt.Chart(prob_df)
-                .mark_bar()
-                .encode(
-                    x="Risk Category:N",
-                    y=alt.Y("Probability (%):Q", scale=alt.Scale(domain=[0, 100])),
-                    color="Risk Category:N",
-                    tooltip=["Risk Category", "Probability (%)"]
-                )
-                .properties(width=300, height=300)
+    alt.Chart(prob_df)
+    .mark_bar()
+    .encode(
+        x=alt.X(
+            "Risk Category:N",
+            title="Risk Category",
+            axis=alt.Axis(
+                domain=True,        # x-axis line ON
+                ticks=True,
+                labelAngle=0
             )
+        ),
+        y=alt.Y(
+            "Probability (%):Q",
+            title="Probability (%)",
+            scale=alt.Scale(domain=[0, 100]),
+            axis=alt.Axis(
+                domain=True,        # y-axis line ON
+                ticks=True,
+                grid=True
+            )
+        ),
+        color=alt.Color("Risk Category:N", legend=None),
+        tooltip=["Risk Category", "Probability (%)"]
+    )
+    .properties(
+        width=420,   # ⬅ increased width
+        height=380   # ⬅ increased height
+    )
+    .configure_axis(
+        labelFontSize=12,
+        titleFontSize=14,
+        domainWidth=2     # ⬅ thicker axis lines
+    )
+)
+
             st.altair_chart(bar_chart, use_container_width=False)
+
